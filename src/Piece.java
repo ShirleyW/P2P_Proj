@@ -20,12 +20,4 @@ public class Piece {
 		return pieceContent;
 	}
 	
-//	public static void main(){
-//		int num=5;
-//		byte[] content= new byte[10];
-//		content[0]=10;
-//		Piece pie=new Piece(num, content);
-//		
-//	}
-
 }
