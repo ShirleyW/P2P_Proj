@@ -1,11 +1,14 @@
+/.DS_Store
 /BitField.class
 /ByteIntConvert.class
 /Configuration.class
 /ControlListener.class
+/Download.class
 /FileHandle.class
+/HandShakeMessage.class
 /Message.class
 /NeighborRecords.class
 /P2pLogger.class
 /Piece.class
-/HandShakeMessage.class
-/Download.class
+/UnChoke.class
+/OptUnchoking.class
