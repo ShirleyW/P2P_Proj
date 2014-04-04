@@ -1,2 +1,11 @@
-/Message.class
+/BitField.class
 /ByteIntConvert.class
+/Configuration.class
+/ControlListener.class
+/FileHandle.class
+/Message.class
+/NeighborRecords.class
+/P2pLogger.class
+/Piece.class
+/HandShakeMessage.class
+/Download.class
