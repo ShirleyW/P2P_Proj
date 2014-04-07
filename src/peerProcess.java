@@ -1,5 +1,8 @@
-import java.io.IOException;
-import java.net.UnknownHostException;
+import java.io.*;
+import java.lang.management.*;
+import java.net.*;
+import java.util.*;
+import java.util.concurrent.*;
 
 
 public class peerProcess implements Runnable{
@@ -21,7 +24,51 @@ public class peerProcess implements Runnable{
 		this.bitfield = new BitField(config.getNumPieces());
 		this.numNeighbors = config.getNumPeers() - 1;
 		neighbor = new NeighborRecords[numNeighbors];
-//		System.out.println("peerProecess 28: peerProcess construction finished");
+	}
+	
+	public void getInit(ServerSocket downServerSkt, ServerSocket upServerSkt, ServerSocket controlServerSkt, int index)throws IOException{
+		Calendar cal;
+		
+		Socket downSkt=downServerSkt.accept();
+		Socket upSkt=upServerSkt.accept();
+		Socket controlSkt=controlServerSkt.accept();
+		
+		HandShakeMessage handShake=new HandShakeMessage();
+		handShake.receive(downSkt);
+		int msgID=handShake.getID();
+		neighbor[index]=new NeighborRecords(msgID,config.getNumPieces(),downSkt,upSkt,controlSkt);
+		handShake.setID(myId);
+		handShake.send(downSkt);
+		
+		Message bitFieldMsg=new Message();
+		bitFieldMsg.receive(downSkt.getInputStream());
+		BitField neighborBitField=new BitField(config.getNumPieces());
+		neighborBitField.setBitField(bitFieldMsg.getPayload());
+		neighbor[index].setBitField(neighborBitField);
+		bitFieldMsg.setType(Message.bitfield);
+		bitFieldMsg.setPayload(bitfield.byteField());
+		bitFieldMsg.send(downSkt.getOutputStream());
+		
+		Message interestMsg=new Message();
+		interestMsg.receive(downSkt.getInputStream());
+		if(interestMsg.getType()==Message.interested)
+		{
+			cal=Calendar.getInstance();
+			logger.interestedLog(msgID, cal);
+		}
+		else
+		{
+			cal=Calendar.getInstance();
+			logger.notInterestedLog(msgID, cal);
+		}
+		if(bitfield.interested(neighbor[index].getBitField()))
+			interestMsg.setType(Message.interested);
+		else
+			interestMsg.setType(Message.notinterested);
+		interestMsg.setPayload(null);
+		interestMsg.send(downSkt.getOutputStream());
+		
+		
 	}
 
 	@Override

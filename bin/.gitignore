@@ -1,4 +1,3 @@
-/.DS_Store
 /BitField.class
 /ByteIntConvert.class
 /Configuration.class
@@ -8,9 +7,8 @@
 /HandShakeMessage.class
 /Message.class
 /NeighborRecords.class
+/OptUnchoking.class
 /P2pLogger.class
 /Piece.class
 /UnChoke.class
-/OptUnchoking.class
-/PeerProcess.class
 /peerProcess.class
