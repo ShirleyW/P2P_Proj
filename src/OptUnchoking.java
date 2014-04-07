@@ -26,7 +26,7 @@ public class OptUnchoking implements Callable<Object> {
 
 	@Override
 	public Object call() throws Exception {
-		System.out.println("Optimal Unchoking: peer " + this.id + " starts optimal uploading");
+		System.out.println("OptUnchoking: peer " + this.id + " starts optimal uploading");
 		int count = 0;
 		int chokenum = 0;
 		int unchokenum = 0;
@@ -42,95 +42,94 @@ public class OptUnchoking implements Callable<Object> {
 				}
 			}
 			if (allFinished) {
-				System.out.println("Optimal Unchoking: peer " + this.id + ": all its neighbors finished");
-				break;
+				System.out.println("OptUnchoking: peer " + this.id + ": all its neighbors finished");
+				break; //if your neighbors finish downloading, stop this "while" loop
 			}
-			int optIndex = -1;
-			boolean find = false;
-			while(!find){
-				optIndex=(int)(Math.random()*neighbors.length);
-				if ((neighbors[optIndex].getBitField().interested(bitfield)) && neighbors[optIndex].compareAndSetChokeState(0, 5)) {
-					find = true; 
-				}
-				
-			}
-//			for (int i = 0; i < TRYTIME; i++) {
-//				optIndex=(int)(Math.random()*neighbors.length);
-//				if ((neighbors[optIndex].getBitField().interested(bitfield)) && neighbors[optIndex].compareAndSetChokeState(0, 5)) {
-//					find = true; 
-//					break;
+			int optNeighborIndex = -1;
+			boolean found = false;
+			
+//			while(!found){
+//				optNeighborIndex=(int)(Math.random()*neighbors.length);
+//				//selected from neighbors choked and interested in this peer's data
+//				if ((neighbors[optNeighborIndex].getBitField().interested(bitfield)) && neighbors[optNeighborIndex].compareAndSetChokeState(0, 2)) {
+//					found = true; 
+//					System.out.println("OptUnchoking: peer" + this.id +"current optimal neighbor is"+neighbors[optNeighborIndex].getId());
 //				}
+//				
 //			}
-//			if (!find) {
-//				Thread.sleep(1000);
-////				System.out.println("OptUnchoke:59: not found");
-//				continue;
-//			}
+			
+			for (int i = 0; i < TRYTIME; i++) {
+				optNeighborIndex=(int)(Math.random()*neighbors.length);
+				if ((neighbors[optNeighborIndex].getBitField().interested(bitfield)) && neighbors[optNeighborIndex].compareAndSetChokeState(0, 2)) {
+					found = true; 
+					break;
+				}
+			}
+			if (!found) {
+				Thread.sleep(1000);
+				System.out.println("OptUnchoking: not found");
+				continue;
+			}
+			
 			Calendar cal = Calendar.getInstance();
-			//logger.haveLog(record.getId(), index, cal);
-			logger.changeOptNeighborsLog(neighbors[optIndex].getId(), cal);
-			NeighborRecords record = neighbors[optIndex];
+			NeighborRecords record = neighbors[optNeighborIndex];
+			logger.changeOptNeighborsLog(record.getId(), cal);			
 			Socket socket = record.getUploadSocket();
-			InputStream in = socket.getInputStream();
-			OutputStream out = socket.getOutputStream();
-			Message msg = new Message();
-//			System.out.println("OptUnchoke:75: before peer " + this.myID + " sends unchoke message to the peer " + record.getID());
-			msg.setType(Message.unchoke);
-			msg.setPayload(null);
-			msg.send(out);
+			InputStream instream = socket.getInputStream();
+			OutputStream outstream = socket.getOutputStream();
+			Message message = new Message();
+			System.out.println("OptUnchoking: peer" + this.id + " sends unchoking message to the peer " + record.getId());
+			message.setType(Message.unchoke);
+			message.setPayload(null);
+			message.send(outstream);
 			unchokenum++;
 //			System.out.println("OptUnchoke:80:sends unchoking message to peer " + record.getID());
 			long start = System.currentTimeMillis();
 			
 			while (true) {
-//				mark++;
-//				System.out.println("OptUnchoke:80: before read a socket, mark = " + mark);
-				msg.receive(in);
-//				System.out.println("OptUnchoke:82: after read a socket, mark = " + mark + ", message type =" + msg.getType()) ;
-//				System.out.println("OptUnchoke:70:peer " + this.myID + " receives a message from peer " + record.getID() + ", message type = " + msg.getType());
-				if (msg.getType() == Message.notinterested) {
+				message.receive(instream);
+				if (message.getType() == Message.notinterested) {
 					logger.notInterestedLog(record.getId(), cal);
-//					msg.setType(Message.CHOKE);
-//					msg.setPayLoad(null);
-//					System.out.println("OptUnchoke:90: receives not interested, before send choke");
-//					msg.send(out);
-//					System.out.println("OptUnchoke:92: receives not interested, after send choke");
+//					message.setType(Message.CHOKE);
+//					message.setPayLoad(null);
+//					System.out.println("OptUnchoking:90: receives not interested, before send choke");
+//					message.send(out);
+//					System.out.println("OptUnchoking:92: receives not interested, after send choke");
 					break;
 				}
 				
-				if (msg.getType() == Message.request) {
-					int index = ByteIntConvert.byteToInt(msg.getPayload());
-					Piece uploadPiece = filehandle.readFile(index);
+				if (message.getType() == Message.request) {
+					int index = ByteIntConvert.byteToInt(message.getPayload());
+					Piece upload = filehandle.readFile(index);
 //					if (index == 246) {
-//						System.out.println("OptUnchoke:79: peer " + this.myID + " reads one piece from disk, piece index = " + index + ", length = " + uploadPiece.getPieceBytes().length);
+//						System.out.println("OptUnchoking: 79: peer " + this.myID + " reads one piece from disk, piece index = " + index + ", length = " + uploadPiece.getPieceBytes().length);
 //					}
 					
-					msg.setType(Message.piece);
-					msg.setPayload(uploadPiece.getPieceContent());
-					msg.send(out);
+					message.setType(Message.piece);
+					message.setPayload(upload.getPieceContent());
+					message.send(outstream);
 					count++;
-//					System.out.println("OptUnchoke:110: sends piece " + index + " to peer " + record.getID());
-
-
+//					System.out.println("OptUnchoking: sends piece " + index + " to peer " + record.getID());
 				}
 				
-				//check if timeout
-				if ((System.currentTimeMillis() - start) > interval * 1000) {
-//					System.out.println("OptUnchoke:87:time out!");
-					msg.receive(in);
-					msg.setType(Message.choke);
-					msg.setPayload(null);
-					msg.send(out);
+				//check optimal unchoking interval ends
+				long last = System.currentTimeMillis();
+				if ((last - start) > interval * 1000) {
+					System.out.println("OptUnchoking: unchoking interval ends");
+					message.receive(instream);
+					message.setType(Message.choke);
+					message.setPayload(null);
+					message.send(outstream);
 					chokenum++;
 					break;
 				} 
 			}
-//			System.out.println("OptUnchoke:117: before compare and set");
-			neighbors[optIndex].compareAndSetChokeState(5, 0);
-//			System.out.println("OptUnchoke119: after compare and set");
+			record.compareAndSetChokeState(2, 0);
+			System.out.println("OptUnchoking: after compare and set");
 	
  		}
-		return null;
+		System.out.println("OptUnchoking: "+ this.id +" optUnchoking finished: send # piece =" + count + ", choke =" + chokenum + ", unchoke = " + unchokenum);
+		return new Object();
 	}
 
 }

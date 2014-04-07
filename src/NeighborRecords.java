@@ -7,7 +7,7 @@ public class NeighborRecords {
 //this class is for peers to maintain the records of each neighbors
 //records include fields declared blow
 	private final int peerId; //ID of this neighbor
-    private AtomicInteger chokeState;//chokeState=0: choked; 1: unchoked; 2:OptUnchoked;
+    private AtomicInteger chokeState;//chokeState:  0-choked; 1-unchoke; 2-interested;
     private BitField bitField; //bitField of this neighbor
     private final Socket downloadSocket; 
     private final Socket uploadSocket;
