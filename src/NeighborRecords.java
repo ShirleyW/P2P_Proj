@@ -75,6 +75,9 @@ public class NeighborRecords {
     	return controlSocket;
     }
     
+    public int getDownload(){
+    	return download;
+    }
     
     public int incDownload(){
     	return download++;
