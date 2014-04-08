@@ -211,7 +211,113 @@ public class peerProcess implements Runnable{
 	
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
+		try {
+			
+			for (int i = 0; i < config.getNumPeers(); i++) {
+				if (config.getID().get(i) == myId) {
+					if (config.getHasFile().get(i)) {
+						bitfield.setAllBitsTrue();
+						break;
+					}
+				}
+			}
+			int index=0;
+			for (int i = 0; i < config.getNumPeers(); i ++) {
+				
+				if (config.getID().get(i) == myId) {
+					index=i;
+					break;
+				}
+				Socket socketD = new Socket(config.getHostName().get(i), config.getDownPort().get(i));	
+				Socket socketU = new Socket(config.getHostName().get(i), config.getUpPort().get(i));
+				Socket socketC = new Socket(config.getHostName().get(i), config.getHavePort().get(i));
+				Calendar cal = Calendar.getInstance();
+				logger.tcpConnectionLog(config.getID().get(i), cal);
+				neighbor[i] = new NeighborRecords(config.getNumPieces(),  config.getID().get(i), socketD, socketU, socketC);
+				initialization(neighbor[i]);//handshake and bitfield
+			}
+
+//			if (index != config.getNumPeers() - 1) {
+				
+//				System.out.println("peerProcess: 243: peer " + this.myID +  " starts to listern to the port");
+				ServerSocket downloadServSoc = new ServerSocket(config.getDownPort().get(index));
+				ServerSocket uploadServSoc = new ServerSocket(config.getUpPort().get(index));
+				ServerSocket haveServSoc = new ServerSocket(config.getHavePort().get(index));
+				
+				for (int i = index; i < config.getNumPeers() - 1; i++) {
+					getInit(downloadServSoc, uploadServSoc, haveServSoc,i);
+//				}
+			}
+
+			ExecutorService downloadThreadPool = Executors.newFixedThreadPool(numNeighbors);
+			ArrayList<Future<Object>> downloadReturn = new ArrayList<Future<Object>>();
+			
+			ExecutorService haveThreadPool = Executors.newFixedThreadPool(numNeighbors);
+			ArrayList<Future<Object>> haveReturn = new ArrayList<Future<Object>>();
+			
+			//start download and have listening
+			for (int i = 0; i < numNeighbors; i++) {
+				NeighborRecords r = neighbor[i];
+				Future<Object> f1 =  downloadThreadPool.submit(new Download( r, neighbor, bitfield, fileHandle, this.myId,logger));
+				downloadReturn.add(f1);
+				Future<Object> f2 = haveThreadPool.submit(new ControlListener(this.myId, r, logger, numNeighbors));
+				haveReturn.add(f2);
+			}
+			
+			//start opt unchoking upload
+			ExecutorService OptUpload = Executors.newSingleThreadExecutor();
+			Future<Object> OptUploadResult = OptUpload.submit(new OptUnchoking(this.myId, bitfield, neighbor, fileHandle, config.getOptUnChokeTime(), logger));
+				
+            //start unchoking upload and wait for its return
+			////bad design: wait for every peer finished and then return
+			unchokeControl();
+			
+			//wait for opt unload return
+			OptUploadResult.get();
+			
+			//send "stop" message to neighbors
+			Message msg = new Message();
+			msg.setType(Message.stop);
+			msg.setPayload(null);
+			for (int i = 0; i < numNeighbors; i++) {
+				msg.send(neighbor[i].getUploadSocket().getOutputStream());
+			}
+			
+			//waiting for all download stop
+			
+			for (int i = 0; i < numNeighbors; i++) {
+				
+				downloadReturn.get(i).get();
+				haveReturn.get(i).get();
+				
+			}
+			Calendar cal = Calendar.getInstance();
+			////no meaning because of last unchoking bad design
+			logger.completionLog(myId, cal);;
+			downloadThreadPool.shutdownNow();
+			OptUpload.shutdownNow();
+			haveThreadPool.shutdownNow();
+//			if (index != config.getNumPeers() - 1) {
+				downloadServSoc.close();
+				uploadServSoc.close();
+				haveServSoc.close();
+//			} 
+
+			for (int i = 0; i < numNeighbors; i++) {
+				neighbor[i].getDownloadSocket().close();
+				neighbor[i].getUploadSocket().close();
+				neighbor[i].getControlSocket().close();
+			}
+			
+//			System.out.println("peerProecess:342: peerProcess quit: peer " + this.myID);
+//			System.out.println("peerProcesss:343: thread profile:");
+//			Profiler p = new Profiler();
+//			p.profile();
+//			System.out.println("peer " + this.myId + " finishes downloading");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 		
 	}
 	public static void main(String args[]) throws Exception {
